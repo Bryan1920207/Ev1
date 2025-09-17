@@ -7,7 +7,8 @@ diccionario_evento={"Nombre":[],
 diccionario_cliente={"Nombre":[],
              "Apellido":[]}
 diccionario_sala={"Nombre":[],
-             "Cupo":[]}
+             "Cupo":[],
+             "Turno":[]}
 diccionario_datos=pd.DataFrame(diccionario_evento)
 diccionario_datos=pd.DataFrame(diccionario_cliente)
 diccionario_datos=pd.DataFrame(diccionario_sala)
