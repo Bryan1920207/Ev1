@@ -18,7 +18,7 @@ if pd.DataFrame(diccionario_evento["Cupo"]<=diccionario_sala["Cupo"]):
 diccionario_datos=pd.DataFrame(diccionario_evento)
 diccionario_datos=pd.DataFrame(diccionario_cliente)
 diccionario_datos=pd.DataFrame(diccionario_sala)
-print("1.Registrar cliente\n2.Registrar sala\n3.Editar reservacion\n4.Salir")
+print("1.Registrar reservacion de una sala\n2.Editar nombre de un evento\n3.Consultar reservaciones por fecha\n4.Registrar nuevo cliente\n5.Registrar sala\n6.Salir")
 opcion=int(input("Que opcion desea hacer? "))
 while True:
     if opcion==1:
@@ -26,4 +26,10 @@ while True:
     elif opcion==2:
         pass
     elif opcion==3:
+        pass
+    elif opcion==4:
+        pass
+    elif opcion==5:
+        pass
+    elif opcion==6:
         break
