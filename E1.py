@@ -359,15 +359,24 @@ while True:
 
         try:
             nombre    = input("Ingrese el nombre del cliente: ").strip()
+
+            # Validar no vacío para nombre
+            if not nombre:
+                raise ValueError("Nombre no puede estar vacío.")
+
+            # Validar solo letras y espacios para nombre
+            if not (nombre.replace(" ", "").isalpha() and apellidos.replace(" ", "").isalpha()):
+                raise ValueError("Nombre solo debe contener letras.")
+
             apellidos = input("Ingrese los apellidos del cliente: ").strip()
 
-            # Validar no vacío
-            if not nombre or not apellidos:
-                raise ValueError("Nombre y apellidos no pueden estar vacíos.")
+            # Validar no vacío para apellidos
+            if not apellidos:
+                raise ValueError("Apellidos no puede estar vacío.")
 
-            # Validar solo letras y espacios
+            # Validar solo letras y espacios para apellidos
             if not (nombre.replace(" ", "").isalpha() and apellidos.replace(" ", "").isalpha()):
-                raise ValueError("Nombre y apellidos solo deben contener letras.")
+                raise ValueError("Apellidos solo debe contener letras.")
 
             # Construir y guardar cliente
             nuevo = {
