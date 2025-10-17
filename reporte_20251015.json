@@ -1,0 +1,14 @@
+[
+  {
+    "sala": 3,
+    "cliente": "Eo, Tak",
+    "evento": "Snoopy Battle Royal",
+    "turno": "MATUTINO"
+  },
+  {
+    "sala": 3,
+    "cliente": "Posting, Ino",
+    "evento": "Ino Fest",
+    "turno": "VESPERTINO"
+  }
+]
