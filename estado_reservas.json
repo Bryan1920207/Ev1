@@ -1,0 +1,83 @@
+{
+  "clientes": [
+    {
+      "id": 1,
+      "nombre": "Thi",
+      "apellidos": "Ling"
+    },
+    {
+      "id": 2,
+      "nombre": "Lee",
+      "apellidos": "Khan"
+    },
+    {
+      "id": 3,
+      "nombre": "Ino",
+      "apellidos": "Posting"
+    },
+    {
+      "id": 4,
+      "nombre": "Momo",
+      "apellidos": "Ring"
+    },
+    {
+      "id": 5,
+      "nombre": "Tak",
+      "apellidos": "Eo"
+    }
+  ],
+  "salas": [
+    {
+      "id": 1,
+      "nombre": "Honestidad",
+      "cupo": 10
+    },
+    {
+      "id": 2,
+      "nombre": "Servicio",
+      "cupo": 20
+    },
+    {
+      "id": 3,
+      "nombre": "Responsabilidad",
+      "cupo": 15
+    }
+  ],
+  "reservas": [
+    {
+      "folio": 1001,
+      "cliente_id": 5,
+      "sala_id": 3,
+      "fecha": "2025-10-15",
+      "turno": "Matutino",
+      "evento": "Snoopy Battle Royal"
+    },
+    {
+      "folio": 1002,
+      "cliente_id": 1,
+      "sala_id": 1,
+      "fecha": "2025-10-31",
+      "turno": "Nocturno",
+      "evento": "Apertura Worlds 2025"
+    },
+    {
+      "folio": 1003,
+      "cliente_id": 2,
+      "sala_id": 2,
+      "fecha": "2025-10-19",
+      "turno": "Vespertino",
+      "evento": "HWLE vs CFO BO1"
+    },
+    {
+      "folio": 1004,
+      "cliente_id": 3,
+      "sala_id": 3,
+      "fecha": "2025-10-15",
+      "turno": "Vespertino",
+      "evento": "Ino Fest"
+    }
+  ],
+  "next_cliente_id": 6,
+  "next_sala_id": 4,
+  "next_folio": 1005
+}
