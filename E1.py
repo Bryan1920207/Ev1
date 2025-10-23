@@ -2,6 +2,8 @@ import datetime
 import sys
 from tabulate import tabulate
 import json
+import sqlite3
+from sqlite3 import Error
 
 # Almacenamiento en listas
 clientes = []      # cada cliente: {'id': int, 'nombre': str, 'apellidos': str}
@@ -183,6 +185,17 @@ while True:
     # lectura del menú con validación
     while True:
         try:
+            try:
+                with sqlite3.connect("Evidencia.db") as conn:
+                    print(sqlite3.version)
+                    mi_cursor = conn.cursor()
+                    mi_cursor.execute("CREATE TABLE IF NOT EXISTS sala (id INTEGER PRIMARY KEY, nombre TEXT NOT NULL, cupo INTEGER NOT NULL);")
+                    print("Tabla creada exitosamente")
+            except Error as e:
+                print (e)
+            except:
+                print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+            
             sel_opcion = input("Seleccionar una opción (1-6): ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\nOperación cancelada por el usuario.")
@@ -212,6 +225,27 @@ while True:
                 print("\nOperación cancelada por el usuario.")
                 sys.exit()
             if texto_fecha.upper() == 'X':
+                fecha_consultar = texto_fecha
+                fecha_consultar = datetime.datetime.strptime(fecha_consultar, "%d/%m/%Y").date()
+
+                try:
+                    with sqlite3.connect("Evidencia.db",
+                                        detect_types = sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES) as conn:
+                        mi_cursor = conn.cursor()
+                        criterios = {"fecha":fecha_consultar}
+                        mi_cursor.execute("SELECT clave, nombre, fecha_registro FROM Amigo \
+                        WHERE DATE(fecha_registro) = :fecha;", criterios)
+                        registros = mi_cursor.fetchall()
+
+                        if registros:
+                            pass
+                        else:
+                            pass
+
+                except sqlite3.Error as e:
+                    print (e)
+                except Exception:
+                    print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
                 print("\n" + "=" * 60)
                 print("Operación cancelada.")
                 print("=" * 60)
@@ -652,6 +686,19 @@ while True:
         print("Sala registrada exitosamente.".center(60))
         print("=" * 60)
         next_sala_id += 1
+
+        nuevo_nombre = texto_nombre_sala
+        nuevo_cupo = texto_cupo
+        try:
+            with sqlite3.connect("AutoDemo.db") as conn:
+                mi_cursor = conn.cursor()
+                valores = (nuevo_nombre, nuevo_cupo) #No se incluye dato para la PK
+                mi_cursor.execute("INSERT INTO sala (nombre, cupo) \
+                VALUES(?,?)", valores)
+        except Error as e:
+            print (e)
+        except Exception:
+            print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
 
     elif opcion == 6:
         # Salir: confirmar S/N y guardar estado
