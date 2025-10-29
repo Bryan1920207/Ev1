@@ -15,6 +15,7 @@ except Exception:
 
 clientes = []
 salas = []
+turnos = []
 reservas = []
 
 next_cliente_id = 1
@@ -75,6 +76,10 @@ CREATE TABLE IF NOT EXISTS salas (
   nombre TEXT NOT NULL UNIQUE,
   cupo INTEGER NOT NULL CHECK (cupo > 0)
 );
+CREATE TABLE IF NOT EXISTS turnos (
+  turno_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  descripcion TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS reservas (
   folio INTEGER PRIMARY KEY AUTOINCREMENT,
   cliente_id INTEGER NOT NULL,
@@ -83,7 +88,8 @@ CREATE TABLE IF NOT EXISTS reservas (
   turno TEXT NOT NULL CHECK (turno IN ('Matutino','Vespertino','Nocturno')),
   evento TEXT NOT NULL,
   FOREIGN KEY (cliente_id) REFERENCES clientes(cliente_id),
-  FOREIGN KEY (sala_id) REFERENCES salas(sala_id)
+  FOREIGN KEY (sala_id) REFERENCES salas(sala_id),
+  FOREIGN KEY (turno_id) REFERENCES turnos(turno_id)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_reserva_sala_fecha_turno
   ON reservas (sala_id, fecha_normalizada, turno);
