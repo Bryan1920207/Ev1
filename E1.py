@@ -85,8 +85,8 @@ CREATE TABLE IF NOT EXISTS reservas (
   cliente_id INTEGER NOT NULL,
   sala_id INTEGER NOT NULL,
   fecha_normalizada DATE NOT NULL,
-  turno TEXT NOT NULL CHECK (turno IN ('Matutino','Vespertino','Nocturno')),
   evento TEXT NOT NULL,
+  activo INTEGER NOT NULL,
   FOREIGN KEY (cliente_id) REFERENCES clientes(cliente_id),
   FOREIGN KEY (sala_id) REFERENCES salas(sala_id),
   FOREIGN KEY (turno_id) REFERENCES turnos(turno_id)
@@ -95,6 +95,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_reserva_sala_fecha_turno
   ON reservas (sala_id, fecha_normalizada, turno);
 CREATE INDEX IF NOT EXISTS ix_reserva_fecha ON reservas (fecha_normalizada);
 CREATE INDEX IF NOT EXISTS ix_reserva_cliente ON reservas (cliente_id);
+INSERT INTO turnos (turno_id,descripcion)VALUES(1,Matutino);
+INSERT INTO turnos (turno_id,descripcion)VALUES(2,Vespertino);
+INSERT INTO turnos (turno_id,descripcion)VALUES(3,Nocturno);
 """
         try:
             with sqlite3.connect(DB_FILE) as conexion:
@@ -394,27 +397,28 @@ while True:
     print(" ----- MENU PRINCIPAL ----- ".center(60))
     print("=" * 60)
     print("1. Registrar reservación de una sala.")
-    print("2. Editar evento.")
-    print("3. Consultar reservaciones por fecha.")
-    print("4. Registrar un nuevo cliente.")
-    print("5. Registrar una sala.")
-    print("6. Salir.")
+    print("2. Cancelar evento.")
+    print("3. Editar evento.")
+    print("4. Consultar reservaciones por fecha.")
+    print("5. Registrar un nuevo cliente.")
+    print("6. Registrar una sala.")
+    print("7. Salir.")
     print("=" * 60)
 
     try:
-        opcion_texto = input("Seleccionar una opción (1-6): ").strip()
+        opcion_texto = input("Seleccionar una opción (1-7): ").strip()
     except (EOFError, KeyboardInterrupt):
         print("\nOperación cancelada por teclado.")
         sys.exit()
     if opcion_texto == "":
-        print("Entrada vacía: ingrese un número entre 1 y 6.")
+        print("Entrada vacía: ingrese un número entre 1 y 7.")
         continue
     if not opcion_texto.isdigit():
-        print("Formato inválido: la opción debe ser numérica entre 1 y 6.")
+        print("Formato inválido: la opción debe ser numérica entre 1 y 7.")
         continue
     opcion = int(opcion_texto)
-    if opcion < 1 or opcion > 6:
-        print("Opción fuera de rango: seleccione un valor entre 1 y 6.")
+    if opcion < 1 or opcion > 7:
+        print("Opción fuera de rango: seleccione un valor entre 1 y 7.")
         continue
 
     if opcion == 1:
@@ -815,8 +819,10 @@ while True:
         print(f"Reservación registrada en memoria con folio {siguiente_folio}.")
         print("=" * 60)
         next_folio = siguiente_folio + 1
-
     elif opcion == 2:
+        pass
+        
+    elif opcion == 3:
         print("\n" + "=" * 60)
         print("EDITAR NOMBRE DE UN EVENTO".center(60))
         print("=" * 60)
@@ -994,7 +1000,7 @@ while True:
             else:
                 print("No se pudo actualizar el evento ni en BD ni en memoria (folio no encontrado).")
 
-    elif opcion == 3:
+    elif opcion == 4:
         print("\n" + "=" * 60)
         print("CONSULTAR RESERVACIONES POR FECHA".center(60))
         print("=" * 60)
@@ -1079,7 +1085,7 @@ while True:
 
             break
 
-    elif opcion == 4:
+    elif opcion == 5:
         print("\n" + "=" * 60)
         print("REGISTRAR UN NUEVO CLIENTE".center(60))
         print("=" * 60)
@@ -1194,7 +1200,7 @@ while True:
             next_cliente_id = cliente_id_mem + 1
             continue
 
-    elif opcion == 5:
+    elif opcion == 6:
         print("\n" + "=" * 60)
         print("REGISTRAR UNA SALA".center(60))
         print("=" * 60)
@@ -1295,7 +1301,7 @@ while True:
         print(f"Sala registrada en memoria con ID {sala_id_mem}.")
         next_sala_id = sala_id_mem + 1
 
-    elif opcion == 6:
+    elif opcion == 7:
         while True:
             try:
                 respuesta_salir = input("¿Desea salir del programa? (S/N): ").strip().upper()
