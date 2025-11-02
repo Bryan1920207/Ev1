@@ -150,7 +150,8 @@ def cargar_estado_desde_bd():
                 "fecha": fecha_dt,
                 "turno_id": r["turno_id"],
                 "turno": r["turno_desc"],
-                "evento": r["evento"]
+                "evento": r["evento"],
+                "activo": r["activo"]
             })
             
         try:
@@ -227,7 +228,7 @@ def generar_reporte_por_fecha_lista(fecha_consulta):
     except Exception as err:
         print(f"Error al generar reporte desde BD: {err}")
         for registro_reserva in reservas:
-            if registro_reserva["fecha"] == fecha_consulta:
+            if registro_reserva["fecha"] == fecha_consulta and registro_reserva["activo"] == 1:
                 cliente_encontrado = None
                 for registro_cliente in clientes:
                     if registro_cliente["id"] == registro_reserva["cliente_id"]:
@@ -455,7 +456,7 @@ while True:
                 print("Fecha invalida: el campo 'Fecha' esta vacio. Formato esperado: MM-DD-YYYY.")
                 continue
                 
-            # Validación de fecha (reemplaza a analizar_fecha_o_none)
+            # Validación de fecha
             if any(c.isalpha() for c in texto_fecha):
                 print("Fecha invalida: hay letras en la fecha. Use solo digitos y guiones, ejemplo: 12-31-2025.")
                 continue
@@ -774,7 +775,7 @@ while True:
                 cancelar = True
                 break
                 
-            # Validación de nombre de evento (reemplaza a es_nombre_evento_valido)
+            # Validación de nombre de evento
             texto_limpio = nombre_evento_texto.strip()
             if not texto_limpio:
                 print("El nombre del evento no puede estar vacio")
@@ -797,7 +798,7 @@ while True:
         # Insertar reserva
         fecha_norm_texto = fecha.strftime(FORMATO_FECHA_ISO)
         
-        # Obtener turno_id (reemplaza a obtener_turno_id)
+        # Obtener turno_id
         try:
             with sqlite3.connect(DB_FILE) as conexion:
                 cursor = conexion.cursor()
@@ -813,7 +814,7 @@ while True:
             print(f"Error: Turno '{turno_seleccionado}' no encontrado")
             continue
 
-        # Verificar conflicto e insertar (reemplaza a insertar_reserva_bd)
+        # Verificar conflicto e insertar
         try:
             with sqlite3.connect(DB_FILE) as conexion:
                 conexion.row_factory = sqlite3.Row
@@ -993,7 +994,7 @@ while True:
                 print("Cancelacion abortada por el usuario.")
                 break
                 
-            # Ejecutar cancelación
+            # Ejecutar cancelación (actualizar activo = 0)
             try:
                 with sqlite3.connect(DB_FILE) as conexion:
                     cursor = conexion.cursor()
@@ -1002,6 +1003,7 @@ while True:
                     cursor.close()
                 cargar_estado_desde_bd()
                 print(f"Reservacion folio {folio_cancelar} cancelada exitosamente.")
+                print("La reserva ya no aparecera en los reportes del sistema.")
             except Exception as err:
                 print(f"Error al cancelar la reservacion folio {folio_cancelar}: {err}")
                 
@@ -1352,7 +1354,7 @@ while True:
         if cancelar_cliente:
             continue
 
-        # Insertar cliente en BD (reemplaza a insertar_cliente_bd)
+        # Insertar cliente en BD
         try:
             asegurar_tablas()
             with sqlite3.connect(DB_FILE) as conexion:
@@ -1444,7 +1446,7 @@ while True:
         if cancelar_sala:
             continue
 
-        # Insertar sala en BD (reemplaza a insertar_sala_bd)
+        # Insertar sala en BD
         try:
             asegurar_tablas()
             with sqlite3.connect(DB_FILE) as conexion:
