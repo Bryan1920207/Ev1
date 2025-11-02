@@ -77,8 +77,13 @@ CREATE TABLE IF NOT EXISTS reservas (
   FOREIGN KEY (turno_id) REFERENCES turnos(turno_id)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS ux_reserva_sala_fecha_turno
-  ON reservas (sala_id, fecha_normalizada, turno_id);
+-- Eliminar el índice único existente si existe
+DROP INDEX IF EXISTS ux_reserva_sala_fecha_turno;
+
+-- Crear índice único parcial que solo aplica a reservas activas
+CREATE UNIQUE INDEX IF NOT EXISTS ux_reserva_sala_fecha_turno_activo 
+ON reservas (sala_id, fecha_normalizada, turno_id) 
+WHERE activo = 1;
 
 CREATE INDEX IF NOT EXISTS ix_reserva_fecha ON reservas (fecha_normalizada);
 CREATE INDEX IF NOT EXISTS ix_reserva_cliente ON reservas (cliente_id);
@@ -93,6 +98,26 @@ INSERT OR IGNORE INTO turnos (turno_id, descripcion) VALUES (3, 'Nocturno');
         except Error as e:
             print(f"Error al crear tablas en la base de datos: {e}")
             sys.exit(1)
+    else:
+        # Si la base de datos ya existe, asegurarnos de que el índice único parcial esté creado
+        try:
+            with sqlite3.connect(DB_FILE) as conexion:
+                cursor = conexion.cursor()
+                
+                # Verificar si el índice único parcial existe
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='ux_reserva_sala_fecha_turno_activo'")
+                if not cursor.fetchone():
+                    # Si no existe, eliminar el índice antiguo y crear el nuevo
+                    cursor.execute("DROP INDEX IF EXISTS ux_reserva_sala_fecha_turno")
+                    cursor.execute("""
+                        CREATE UNIQUE INDEX ux_reserva_sala_fecha_turno_activo 
+                        ON reservas (sala_id, fecha_normalizada, turno_id) 
+                        WHERE activo = 1
+                    """)
+                    conexion.commit()
+                cursor.close()
+        except Exception as err:
+            print(f"Error verificando/creando índice único parcial: {err}")
 
 def cargar_estado_desde_bd():
     global clientes, salas, turnos, reservas, next_cliente_id, next_sala_id, next_folio
@@ -421,15 +446,15 @@ while True:
         sys.exit()
         
     if opcion_texto == "":
-        print("Entrada vacia: ingrese un numero entre 1 y 7.")
+        print("Entrada vacia: ingrese un numero entre 1 and 7.")
         continue
     if not opcion_texto.isdigit():
-        print("Formato invalido: la opcion debe ser numerica entre 1 y 7.")
+        print("Formato invalido: la opcion debe ser numerica entre 1 and 7.")
         continue
         
     opcion = int(opcion_texto)
     if opcion < 1 or opcion > 7:
-        print("Opcion fuera de rango: seleccione un valor entre 1 y 7.")
+        print("Opcion fuera de rango: seleccione un valor entre 1 and 7.")
         continue
 
     if opcion == 1:
@@ -505,6 +530,7 @@ while True:
             continue
 
         # Selección de cliente
+        cliente_nombre_completo = ""
         while True:
             clientes_bd = []
             try:
@@ -559,7 +585,8 @@ while True:
                 
             cliente_seleccionado = next((fila for fila in clientes_bd if fila['cliente_id'] == cliente_id), None)
             if cliente_seleccionado:
-                print(f"Cliente seleccionado: {cliente_seleccionado['apellidos']}, {cliente_seleccionado['nombre']}")
+                cliente_nombre_completo = f"{cliente_seleccionado['apellidos']}, {cliente_seleccionado['nombre']}"
+                print(f"Cliente seleccionado: {cliente_nombre_completo}")
             break
             
         if cancelar:
@@ -617,32 +644,7 @@ while True:
             print("Seleccione otra fecha")
             print("Registre mas salas (Opcion 6)")
             print("-" * 60)
-            
-            while True:
-                try:
-                    respuesta = input("\nDesea seleccionar otra fecha? (S/N): ").strip().upper()
-                except (EOFError, KeyboardInterrupt):
-                    print("\nOperacion cancelada por el usuario.")
-                    cancelar = True
-                    break
-                    
-                if respuesta == "":
-                    print("Respuesta vacia: escriba 'S' para si o 'N' para no.")
-                    continue
-                if respuesta not in ("S", "N"):
-                    print("Respuesta invalida: escriba 'S' para si o 'N' para no.")
-                    continue
-                    
-                if respuesta == "S":
-                    break
-                else:
-                    cancelar = True
-                    break
-                    
-            if cancelar:
-                continue
-            else:
-                continue
+            continue
 
         # Mostrar salas disponibles
         print("\n" + "-" * 50)
@@ -662,6 +664,7 @@ while True:
             print(f"   {turno_disp}")
 
         # Selección de sala
+        sala_nombre = ""
         while True:
             try:
                 sel_sala_texto = input("\nIngrese ID de sala o 'X' para cancelar: ").strip()
@@ -690,13 +693,15 @@ while True:
             try:
                 with sqlite3.connect(DB_FILE) as conexion:
                     cursor = conexion.cursor()
-                    cursor.execute("SELECT sala_id FROM salas WHERE sala_id=?", (sala_id,))
-                    sala_existe = cursor.fetchone() is not None
+                    cursor.execute("SELECT sala_id, nombre FROM salas WHERE sala_id=?", (sala_id,))
+                    resultado = cursor.fetchone()
                     cursor.close()
                     
-                if not sala_existe:
+                if not resultado:
                     print(f"ID {sala_id} no encontrado en la base de datos. Ingrese un ID valido.")
                     continue
+                else:
+                    sala_nombre = resultado[1]
                     
             except Exception as err:
                 print(f"Error verificando sala: {err}")
@@ -837,8 +842,8 @@ while True:
             print("RESERVACION REGISTRADA EXITOSAMENTE")
             print("=" * 60)
             print(f"Folio: {folio_generado}")
-            print(f"Cliente ID: {cliente_id}")
-            print(f"Sala ID: {sala_id}")
+            print(f"Cliente: {cliente_nombre_completo}")
+            print(f"Sala: {sala_nombre}")
             print(f"Fecha: {fecha.strftime(FORMATO_FECHA_INPUT)}")
             print(f"Turno: {turno_seleccionado}")
             print(f"Evento: {nombre_evento_texto}")
@@ -846,6 +851,7 @@ while True:
             
         except sqlite3.IntegrityError as err:
             print(f"Reserva no insertada en BD (error de integridad): {err}")
+            print("Nota: Esto puede ocurrir si hay un conflicto de unicidad. Verifique que no exista una reserva activa para la misma sala, fecha y turno.")
         except Exception as err:
             print(f"Error al insertar reserva en BD: {err}")
 
