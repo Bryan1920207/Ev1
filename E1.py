@@ -463,6 +463,7 @@ while True:
         print("=" * 60)
         cancelar = False
 
+        # CORRECCIÓN APLICADA: Manejo correcto de fechas domingo
         # Ingreso de fecha
         while True:
             try:
@@ -518,14 +519,23 @@ while True:
                         continue
                     if respuesta_domingo == "S":
                         fecha = lunes_propuesto
-                    break
-                    
+                        break
+                    else:  # Respuesta "N"
+                        print("Fecha domingo rechazada. Por favor ingrese una nueva fecha que no sea domingo.")
+                        break  # Rompe el bucle interno para volver a pedir fecha
+                        
                 if cancelar:
                     break
-
-            print(f"Fecha aceptada: {fecha.strftime(FORMATO_FECHA_INPUT)}")
-            break
-            
+                    
+                if respuesta_domingo == "N":
+                    continue  # Vuelve al inicio del bucle principal para pedir nueva fecha
+                else:
+                    break  # Fecha aceptada (lunes) o cancelada
+                    
+            else:  # No es domingo
+                print(f"Fecha aceptada: {fecha.strftime(FORMATO_FECHA_INPUT)}")
+                break
+                
         if cancelar:
             continue
 
