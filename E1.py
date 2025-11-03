@@ -39,8 +39,8 @@ def asegurar_tablas():
                 crear = True
             cursor.close()
             conexion.close()
-        except Exception as err:
-            print(f"Error comprobando esquema de BD: {err}")
+        except Exception as error:
+            print(f"Error comprobando esquema de BD: {error}")
             crear = True
     
     if crear:
@@ -77,10 +77,8 @@ CREATE TABLE IF NOT EXISTS reservas (
   FOREIGN KEY (turno_id) REFERENCES turnos(turno_id)
 );
 
--- Eliminar el índice único existente si existe
 DROP INDEX IF EXISTS ux_reserva_sala_fecha_turno;
 
--- Crear índice único parcial que solo aplica a reservas activas
 CREATE UNIQUE INDEX IF NOT EXISTS ux_reserva_sala_fecha_turno_activo 
 ON reservas (sala_id, fecha_normalizada, turno_id) 
 WHERE activo = 1;
@@ -95,19 +93,16 @@ INSERT OR IGNORE INTO turnos (turno_id, descripcion) VALUES (3, 'Nocturno');
         try:
             with sqlite3.connect(DB_FILE) as conexion:
                 conexion.executescript(ddl)
-        except Error as e:
-            print(f"Error al crear tablas en la base de datos: {e}")
+        except Error as error:
+            print(f"Error al crear tablas en la base de datos: {error}")
             sys.exit(1)
     else:
-        # Si la base de datos ya existe, asegurarnos de que el índice único parcial esté creado
         try:
             with sqlite3.connect(DB_FILE) as conexion:
                 cursor = conexion.cursor()
                 
-                # Verificar si el índice único parcial existe
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='ux_reserva_sala_fecha_turno_activo'")
                 if not cursor.fetchone():
-                    # Si no existe, eliminar el índice antiguo y crear el nuevo
                     cursor.execute("DROP INDEX IF EXISTS ux_reserva_sala_fecha_turno")
                     cursor.execute("""
                         CREATE UNIQUE INDEX ux_reserva_sala_fecha_turno_activo 
@@ -116,8 +111,8 @@ INSERT OR IGNORE INTO turnos (turno_id, descripcion) VALUES (3, 'Nocturno');
                     """)
                     conexion.commit()
                 cursor.close()
-        except Exception as err:
-            print(f"Error verificando/creando índice único parcial: {err}")
+        except Exception as error:
+            print(f"Error verificando/creando índice único parcial: {error}")
 
 def cargar_estado_desde_bd():
     global clientes, salas, turnos, reservas, next_cliente_id, next_sala_id, next_folio
@@ -147,14 +142,14 @@ def cargar_estado_desde_bd():
             filas_reservas = cursor.fetchall()
             cursor.close()
             
-        clientes = [{"id": r["id"], "nombre": r["nombre"], "apellidos": r["apellidos"]} for r in filas_clientes]
-        salas = [{"id": r["id"], "nombre": r["nombre"], "cupo": r["cupo"]} for r in filas_salas]
-        turnos = [{"id": r["turno_id"], "descripcion": r["descripcion"]} for r in filas_turnos]
+        clientes = [{"id": fila_cliente["id"], "nombre": fila_cliente["nombre"], "apellidos": fila_cliente["apellidos"]} for fila_cliente in filas_clientes]
+        salas = [{"id": fila_sala["id"], "nombre": fila_sala["nombre"], "cupo": fila_sala["cupo"]} for fila_sala in filas_salas]
+        turnos = [{"id": fila_turno["turno_id"], "descripcion": fila_turno["descripcion"]} for fila_turno in filas_turnos]
         
         reservas = []
-        for r in filas_reservas:
+        for fila_reserva in filas_reservas:
             fecha_dt = None
-            fecha_texto = r["fecha_normalizada"]
+            fecha_texto = fila_reserva["fecha_normalizada"]
             if fecha_texto:
                 try:
                     fecha_dt = datetime.datetime.strptime(fecha_texto, FORMATO_FECHA_ISO).date()
@@ -165,18 +160,18 @@ def cargar_estado_desde_bd():
                         fecha_dt = None
             
             if fecha_dt is None:
-                print(f"Advertencia: formato de fecha invalido en BD para folio {r.get('folio')}, registro omitido.")
+                print(f"Advertencia: formato de fecha invalido en BD para folio {fila_reserva.get('folio')}, registro omitido.")
                 continue
                 
             reservas.append({
-                "folio": r["folio"],
-                "cliente_id": r["cliente_id"],
-                "sala_id": r["sala_id"],
+                "folio": fila_reserva["folio"],
+                "cliente_id": fila_reserva["cliente_id"],
+                "sala_id": fila_reserva["sala_id"],
                 "fecha": fecha_dt,
-                "turno_id": r["turno_id"],
-                "turno": r["turno_desc"],
-                "evento": r["evento"],
-                "activo": r["activo"]
+                "turno_id": fila_reserva["turno_id"],
+                "turno": fila_reserva["turno_desc"],
+                "evento": fila_reserva["evento"],
+                "activo": fila_reserva["activo"]
             })
             
         try:
@@ -198,13 +193,13 @@ def cargar_estado_desde_bd():
                     next_folio = max_folio[0] + 1
                     
                 cursor.close()
-        except Exception as err:
-            print(f"Advertencia sincronizando contadores desde BD: {err}")
+        except Exception as error:
+            print(f"Advertencia sincronizando contadores desde BD: {error}")
             
         return True
         
-    except Exception as err:
-        print(f"No se pudo cargar estado desde BD: {err}")
+    except Exception as error:
+        print(f"No se pudo cargar estado desde BD: {error}")
         return False
 
 def generar_reporte_por_fecha_lista(fecha_consulta):
@@ -237,21 +232,21 @@ def generar_reporte_por_fecha_lista(fecha_consulta):
             cursor.execute(query, (fecha_iso,))
             resultados = cursor.fetchall()
             
-            for r in resultados:
+            for resultado in resultados:
                 filas_reporte.append([
-                    r["folio"],
+                    resultado["folio"],
                     fecha_consulta.strftime(FORMATO_FECHA_INPUT),
-                    f"{r['cliente_apellidos']}, {r['cliente_nombre']}",
-                    r["sala_nombre"],
-                    r["cupo"],
-                    r["turno_descripcion"],
-                    r["evento"]
+                    f"{resultado['cliente_apellidos']}, {resultado['cliente_nombre']}",
+                    resultado["sala_nombre"],
+                    resultado["cupo"],
+                    resultado["turno_descripcion"],
+                    resultado["evento"]
                 ])
             
             cursor.close()
             
-    except Exception as err:
-        print(f"Error al generar reporte desde BD: {err}")
+    except Exception as error:
+        print(f"Error al generar reporte desde BD: {error}")
         for registro_reserva in reservas:
             if registro_reserva["fecha"] == fecha_consulta and registro_reserva["activo"] == 1:
                 cliente_encontrado = None
@@ -308,21 +303,21 @@ def generar_reporte_por_rango_fecha(fecha_inicio, fecha_fin):
             cursor.close()
             
             registros = []
-            for r in resultados:
-                fecha_dt = datetime.datetime.strptime(r["fecha_normalizada"], FORMATO_FECHA_ISO).date()
+            for resultado in resultados:
+                fecha_dt = datetime.datetime.strptime(resultado["fecha_normalizada"], FORMATO_FECHA_ISO).date()
                 registros.append({
-                    "folio": r["folio"],
+                    "folio": resultado["folio"],
                     "fecha": fecha_dt.strftime(FORMATO_FECHA_INPUT),
-                    "cliente": f"{r['cliente_apellidos']}, {r['cliente_nombre']}",
-                    "sala": r["sala_nombre"],
-                    "turno": r["turno_descripcion"],
-                    "evento": r["evento"]
+                    "cliente": f"{resultado['cliente_apellidos']}, {resultado['cliente_nombre']}",
+                    "sala": resultado["sala_nombre"],
+                    "turno": resultado["turno_descripcion"],
+                    "evento": resultado["evento"]
                 })
             
             return registros
             
-    except Exception as err:
-        print(f"Error al obtener reservas por rango: {err}")
+    except Exception as error:
+        print(f"Error al obtener reservas por rango: {error}")
         return []
 
 def imprimir_reporte_tabular_por_fecha(fecha_consulta):
@@ -366,8 +361,8 @@ def exportar_reporte_json(fecha_consulta, filas_export):
         with open(nombre_archivo, "w", encoding="utf-8") as archivo_salida:
             json.dump(datos_json, archivo_salida, ensure_ascii=False, indent=2)
         print(f"Reporte JSON guardado como: {nombre_archivo}")
-    except Exception as err:
-        print(f"Error al exportar JSON: {err}")
+    except Exception as error:
+        print(f"Error al exportar JSON: {error}")
 
 def exportar_reporte_csv(fecha_consulta, filas_export):
     if not filas_export:
@@ -381,8 +376,8 @@ def exportar_reporte_csv(fecha_consulta, filas_export):
             for fila in filas_export:
                 escritor.writerow(fila)
         print(f"Reporte CSV guardado como: {nombre_archivo}")
-    except Exception as err:
-        print(f"Error al exportar CSV: {err}")
+    except Exception as error:
+        print(f"Error al exportar CSV: {error}")
 
 def exportar_reporte_excel(fecha_consulta, filas_export):
     if openpyxl is None:
@@ -411,10 +406,9 @@ def exportar_reporte_excel(fecha_consulta, filas_export):
                 celda.alignment = Alignment(horizontal="center")
         libro.save(nombre_archivo)
         print(f"Reporte Excel guardado como: {nombre_archivo}")
-    except Exception as err:
-        print(f"Error al exportar Excel: {err}")
+    except Exception as error:
+        print(f"Error al exportar Excel: {error}")
 
-# Inicialización
 inicio_bd_ok = cargar_estado_desde_bd()
 if inicio_bd_ok:
     print("\n" + "=" * 70)
@@ -425,7 +419,6 @@ else:
     print("No se pudo cargar Evidencia.db; iniciando con estado vacio".center(70))
     print("=" * 70)
 
-# Menú principal
 while True:
     print("\n" + "=" * 60)
     print("SISTEMA DE RESERVACION DE SALAS".center(60))
@@ -458,412 +451,423 @@ while True:
         continue
 
     if opcion == 1:
-        print("\n" + "=" * 60)
-        print("REGISTRAR RESERVACION".center(60))
-        print("=" * 60)
-        cancelar = False
-
-        # CORRECCIÓN APLICADA: Manejo correcto de fechas domingo
-        # Ingreso de fecha
         while True:
-            try:
-                texto_fecha = input("\nIngrese fecha de reservacion (MM-DD-YYYY) o 'X' para cancelar: ").strip()
-            except (EOFError, KeyboardInterrupt):
-                print("\nOperacion cancelada por el usuario.")
-                cancelar = True
-                break
-                
-            if texto_fecha.upper() == "X":
-                print("Operacion cancelada por el usuario.")
-                cancelar = True
-                break
-                
-            if texto_fecha == "":
-                print("Fecha invalida: el campo 'Fecha' esta vacio. Formato esperado: MM-DD-YYYY.")
-                continue
-                
-            # Validación de fecha
-            if any(c.isalpha() for c in texto_fecha):
-                print("Fecha invalida: hay letras en la fecha. Use solo digitos y guiones, ejemplo: 12-31-2025.")
-                continue
-            if any(c in ",./\\" for c in texto_fecha) and "-" not in texto_fecha:
-                print("Fecha invalida: separadores incorrectos. Use '-' entre mes, dia y año. Ejemplo: MM-DD-YYYY.")
-                continue
-            try:
-                fecha = datetime.datetime.strptime(texto_fecha, FORMATO_FECHA_INPUT).date()
-            except ValueError:
-                print("Fecha invalida: formato incorrecto. Use MM-DD-YYYY, ejemplo: 12-31-2025.")
-                continue
-                
-            if fecha < datetime.date.today() + datetime.timedelta(days=2):
-                print("Restriccion de antelacion: la fecha debe ser al menos dos dias posterior a hoy.")
-                continue
-                
-            if fecha.weekday() == 6:
-                lunes_propuesto = fecha + datetime.timedelta(days=1)
-                while True:
-                    try:
-                        respuesta_domingo = input(f"La fecha ingresada es domingo. Se propone {lunes_propuesto.strftime(FORMATO_FECHA_INPUT)}. Aceptar? (S/N) o 'X' para cancelar: ").strip().upper()
-                    except (EOFError, KeyboardInterrupt):
-                        print("\nOperacion cancelada por el usuario.")
-                        respuesta_domingo = "X"
-                        
-                    if respuesta_domingo == "X":
-                        cancelar = True
-                        break
-                    if respuesta_domingo == "":
-                        print("Respuesta vacia: escriba 'S' para aceptar o 'N' para rechazar.")
-                        continue
-                    if respuesta_domingo not in ("S", "N"):
-                        print("Respuesta invalida: escriba 'S' para aceptar o 'N' para rechazar.")
-                        continue
-                    if respuesta_domingo == "S":
-                        fecha = lunes_propuesto
-                        break
-                    else:  # Respuesta "N"
-                        print("Fecha domingo rechazada. Por favor ingrese una nueva fecha que no sea domingo.")
-                        break  # Rompe el bucle interno para volver a pedir fecha
-                        
-                if cancelar:
+            print("\n" + "=" * 60)
+            print("REGISTRAR RESERVACION".center(60))
+            print("=" * 60)
+            cancelar = False
+
+            while True:
+                try:
+                    texto_fecha = input("\nIngrese fecha de reservacion (MM-DD-YYYY) o 'X' para cancelar: ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nOperacion cancelada por el usuario.")
+                    cancelar = True
                     break
                     
-                if respuesta_domingo == "N":
-                    continue  # Vuelve al inicio del bucle principal para pedir nueva fecha
-                else:
-                    break  # Fecha aceptada (lunes) o cancelada
+                if texto_fecha.upper() == "X":
+                    print("Operacion cancelada por el usuario.")
+                    cancelar = True
+                    break
                     
-            else:  # No es domingo
-                print(f"Fecha aceptada: {fecha.strftime(FORMATO_FECHA_INPUT)}")
+                if texto_fecha == "":
+                    print("Fecha invalida: el campo 'Fecha' esta vacio. Formato esperado: MM-DD-YYYY.")
+                    continue
+                    
+                if any(caracter.isalpha() for caracter in texto_fecha):
+                    print("Fecha invalida: hay letras en la fecha. Use solo digitos y guiones, ejemplo: 12-31-2025.")
+                    continue
+                if any(caracter in ",./\\" for caracter in texto_fecha) and "-" not in texto_fecha:
+                    print("Fecha invalida: separadores incorrectos. Use '-' entre mes, dia y año. Ejemplo: MM-DD-YYYY.")
+                    continue
+                try:
+                    fecha = datetime.datetime.strptime(texto_fecha, FORMATO_FECHA_INPUT).date()
+                except ValueError:
+                    print("Fecha invalida: formato incorrecto. Use MM-DD-YYYY, ejemplo: 12-31-2025.")
+                    continue
+                    
+                if fecha < datetime.date.today() + datetime.timedelta(days=2):
+                    print("Restriccion de antelacion: la fecha debe ser al menos dos dias posterior a hoy.")
+                    continue
+                    
+                if fecha.weekday() == 6:
+                    lunes_propuesto = fecha + datetime.timedelta(days=1)
+                    while True:
+                        try:
+                            respuesta_domingo = input(f"La fecha ingresada es domingo. Se propone {lunes_propuesto.strftime(FORMATO_FECHA_INPUT)}. Aceptar? (S/N) o 'X' para cancelar: ").strip().upper()
+                        except (EOFError, KeyboardInterrupt):
+                            print("\nOperacion cancelada por el usuario.")
+                            respuesta_domingo = "X"
+                            
+                        if respuesta_domingo == "X":
+                            cancelar = True
+                            break
+                        if respuesta_domingo == "":
+                            print("Respuesta vacia: escriba 'S' para aceptar o 'N' para rechazar.")
+                            continue
+                        if respuesta_domingo not in ("S", "N"):
+                            print("Respuesta invalida: escriba 'S' para aceptar o 'N' para rechazar.")
+                            continue
+                        if respuesta_domingo == "S":
+                            fecha = lunes_propuesto
+                            break
+                        else:
+                            print("Fecha domingo rechazada. Por favor ingrese una nueva fecha que no sea domingo.")
+                            break
+                            
+                    if cancelar:
+                        break
+                        
+                    if respuesta_domingo == "N":
+                        continue
+                    else:
+                        break
+                        
+                else:
+                    print(f"Fecha aceptada: {fecha.strftime(FORMATO_FECHA_INPUT)}")
+                    break
+                    
+            if cancelar:
+                break
+
+            cliente_nombre_completo = ""
+            while True:
+                clientes_bd = []
+                try:
+                    with sqlite3.connect(DB_FILE) as conexion:
+                        conexion.row_factory = sqlite3.Row
+                        cursor = conexion.cursor()
+                        cursor.execute("SELECT cliente_id, apellidos, nombre FROM clientes ORDER BY apellidos, nombre")
+                        clientes_bd = cursor.fetchall()
+                        cursor.close()
+                except Exception as error:
+                    print(f"Error al leer lista de clientes desde BD: {error}")
+                    clientes_bd = []
+
+                if not clientes_bd:
+                    print("\nNo hay clientes registrados. Use la opcion 5 para registrar un cliente.")
+                    cancelar = True
+                    break
+
+                print("\n" + "-" * 50)
+                print("CLIENTES REGISTRADOS")
+                print("-" * 50)
+                for fila_cliente in clientes_bd:
+                    print(f"{fila_cliente['cliente_id']}: {fila_cliente['apellidos']}, {fila_cliente['nombre']}")
+                    
+                try:
+                    sel_cliente_texto = input("\nIngrese ID de cliente o 'X' para cancelar: ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nOperacion cancelada por el usuario.")
+                    cancelar = True
+                    break
+                    
+                if sel_cliente_texto.upper() == "X":
+                    print("Operacion cancelada por el usuario.")
+                    cancelar = True
+                    break
+                    
+                if sel_cliente_texto == "":
+                    print("ID invalido: el campo esta vacio.")
+                    continue
+                if sel_cliente_texto == "0":
+                    print("ID invalido: el numero debe ser mayor a 0.")
+                    continue
+                if not sel_cliente_texto.isdigit():
+                    print("ID invalido: no se aceptan letras en el ID del cliente.")
+                    continue
+                    
+                cliente_id = int(sel_cliente_texto)
+                encontrado = any(fila_cliente['cliente_id'] == cliente_id for fila_cliente in clientes_bd)
+                if not encontrado:
+                    print(f"ID {cliente_id} no encontrado en la base de datos. Ingrese un ID valido de la lista.")
+                    continue
+                    
+                cliente_seleccionado = next((fila_cliente for fila_cliente in clientes_bd if fila_cliente['cliente_id'] == cliente_id), None)
+                if cliente_seleccionado:
+                    cliente_nombre_completo = f"{cliente_seleccionado['apellidos']}, {cliente_seleccionado['nombre']}"
+                    print(f"Cliente seleccionado: {cliente_nombre_completo}")
                 break
                 
-        if cancelar:
-            continue
+            if cancelar:
+                break
 
-        # Selección de cliente
-        cliente_nombre_completo = ""
-        while True:
-            clientes_bd = []
+            fecha_norm_texto = fecha.strftime(FORMATO_FECHA_ISO)
+            disponibles = []
             try:
                 with sqlite3.connect(DB_FILE) as conexion:
                     conexion.row_factory = sqlite3.Row
                     cursor = conexion.cursor()
-                    cursor.execute("SELECT cliente_id, apellidos, nombre FROM clientes ORDER BY apellidos, nombre")
-                    clientes_bd = cursor.fetchall()
+                    
+                    cursor.execute("SELECT sala_id, nombre, cupo FROM salas ORDER BY nombre")
+                    filas_salas = cursor.fetchall()
+                    
+                    cursor.execute("SELECT turno_id, descripcion FROM turnos ORDER BY turno_id")
+                    filas_turnos = cursor.fetchall()
                     cursor.close()
-            except Exception as err:
-                print(f"Error al leer lista de clientes desde BD: {err}")
-                clientes_bd = []
+                    
+                for fila_sala in filas_salas:
+                    sala_id_tmp = fila_sala['sala_id']
+                    sala_nombre_tmp = fila_sala['nombre']
+                    sala_cupo_tmp = fila_sala['cupo']
+                    
+                    for fila_turno in filas_turnos:
+                        turno_id_tmp = fila_turno['turno_id']
+                        turno_desc_tmp = fila_turno['descripcion']
+                        
+                        try:
+                            with sqlite3.connect(DB_FILE) as conexion_check:
+                                cursor_check = conexion_check.cursor()
+                                cursor_check.execute("SELECT 1 FROM reservas WHERE sala_id=? AND fecha_normalizada=? AND turno_id=? AND activo=1",
+                                                     (sala_id_tmp, fecha_norm_texto, turno_id_tmp))
+                                ocupado_bd = cursor_check.fetchone() is not None
+                                cursor_check.close()
+                        except Exception as error:
+                            print(f"Error verificando disponibilidad: {error}")
+                            ocupado_bd = True
+                            
+                        if not ocupado_bd:
+                            disponibles.append((sala_id_tmp, sala_nombre_tmp, sala_cupo_tmp, turno_desc_tmp))
+                            
+            except Exception as error:
+                print(f"Error al leer salas desde BD: {error}")
+                disponibles = []
 
-            if not clientes_bd:
-                print("\nNo hay clientes registrados. Use la opcion 5 para registrar un cliente.")
-                cancelar = True
-                break
+            if not disponibles:
+                print("\n" + "-" * 60)
+                print("NO HAY SALAS DISPONIBLES")
+                print("-" * 60)
+                print(f"Para la fecha: {fecha.strftime(FORMATO_FECHA_INPUT)}")
+                print("No existen salas con turnos libres.")
+                print("\nSugerencias:")
+                print("Seleccione otra fecha")
+                print("Registre mas salas (Opcion 6)")
+                print("-" * 60)
+                
+                while True:
+                    try:
+                        reintentar = input("\n¿Desea intentar con otra fecha? (S/N): ").strip().upper()
+                    except (EOFError, KeyboardInterrupt):
+                        print("\nOperacion cancelada por el usuario.")
+                        reintentar = "N"
+                        break
+
+                    if reintentar == "":
+                        print("Respuesta vacia: escriba 'S' para si o 'N' para no.")
+                        continue
+                    if reintentar not in ("S", "N"):
+                        print("Respuesta invalida: escriba 'S' para si o 'N' para no.")
+                        continue
+
+                    if reintentar == "S":
+                        break
+                    else:
+                        cancelar = True
+                        break
+
+                if cancelar:
+                    break
+                else:
+                    continue
 
             print("\n" + "-" * 50)
-            print("CLIENTES REGISTRADOS")
+            print(f"SALAS DISPONIBLES PARA {fecha.strftime(FORMATO_FECHA_INPUT)}")
             print("-" * 50)
-            for fila_cliente in clientes_bd:
-                print(f"{fila_cliente['cliente_id']}: {fila_cliente['apellidos']}, {fila_cliente['nombre']}")
+            salas_mostradas = set()
+            for registro_disponible in disponibles:
+                id_sala_disp = registro_disponible[0]
+                nombre_sala_disp = registro_disponible[1]
+                cupo_sala_disp = registro_disponible[2]
                 
-            try:
-                sel_cliente_texto = input("\nIngrese ID de cliente o 'X' para cancelar: ").strip()
-            except (EOFError, KeyboardInterrupt):
-                print("\nOperacion cancelada por el usuario.")
-                cancelar = True
-                break
+                if id_sala_disp not in salas_mostradas:
+                    print(f"\nSALA {id_sala_disp}: {nombre_sala_disp} (Cupo: {cupo_sala_disp} personas)")
+                    salas_mostradas.add(id_sala_disp)
                 
-            if sel_cliente_texto.upper() == "X":
-                print("Operacion cancelada por el usuario.")
-                cancelar = True
-                break
-                
-            if sel_cliente_texto == "":
-                print("ID invalido: el campo esta vacio.")
-                continue
-            if sel_cliente_texto == "0":
-                print("ID invalido: el numero debe ser mayor a 0.")
-                continue
-            if not sel_cliente_texto.isdigit():
-                print("ID invalido: no se aceptan letras en el ID del cliente.")
-                continue
-                
-            cliente_id = int(sel_cliente_texto)
-            encontrado = any(fila['cliente_id'] == cliente_id for fila in clientes_bd)
-            if not encontrado:
-                print(f"ID {cliente_id} no encontrado en la base de datos. Ingrese un ID valido de la lista.")
-                continue
-                
-            cliente_seleccionado = next((fila for fila in clientes_bd if fila['cliente_id'] == cliente_id), None)
-            if cliente_seleccionado:
-                cliente_nombre_completo = f"{cliente_seleccionado['apellidos']}, {cliente_seleccionado['nombre']}"
-                print(f"Cliente seleccionado: {cliente_nombre_completo}")
-            break
-            
-        if cancelar:
-            continue
+                turno_disp = registro_disponible[3]
+                print(f"   {turno_disp}")
 
-        # Verificar disponibilidad
-        fecha_norm_texto = fecha.strftime(FORMATO_FECHA_ISO)
-        disponibles = []
-        try:
-            with sqlite3.connect(DB_FILE) as conexion:
-                conexion.row_factory = sqlite3.Row
-                cursor = conexion.cursor()
-                
-                cursor.execute("SELECT sala_id, nombre, cupo FROM salas ORDER BY nombre")
-                filas_salas = cursor.fetchall()
-                
-                cursor.execute("SELECT turno_id, descripcion FROM turnos ORDER BY turno_id")
-                filas_turnos = cursor.fetchall()
-                cursor.close()
-                
-            for fila_sala in filas_salas:
-                sala_id_tmp = fila_sala['sala_id']
-                sala_nombre_tmp = fila_sala['nombre']
-                sala_cupo_tmp = fila_sala['cupo']
-                
-                for fila_turno in filas_turnos:
-                    turno_id_tmp = fila_turno['turno_id']
-                    turno_desc_tmp = fila_turno['descripcion']
+            sala_nombre = ""
+            while True:
+                try:
+                    sel_sala_texto = input("\nIngrese ID de sala o 'X' para cancelar: ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nOperacion cancelada por el usuario.")
+                    cancelar = True
+                    break
                     
-                    try:
-                        with sqlite3.connect(DB_FILE) as conexion_check:
-                            cursor_check = conexion_check.cursor()
-                            cursor_check.execute("SELECT 1 FROM reservas WHERE sala_id=? AND fecha_normalizada=? AND turno_id=? AND activo=1",
-                                                 (sala_id_tmp, fecha_norm_texto, turno_id_tmp))
-                            ocupado_bd = cursor_check.fetchone() is not None
-                            cursor_check.close()
-                    except Exception as err:
-                        print(f"Error verificando disponibilidad: {err}")
-                        ocupado_bd = True
+                if sel_sala_texto.upper() == "X":
+                    print("Operacion cancelada por el usuario.")
+                    cancelar = True
+                    break
+                    
+                if sel_sala_texto == "":
+                    print("ID de sala invalido: campo vacio.")
+                    continue
+                if sel_sala_texto == "0":
+                    print("ID invalido: el numero debe ser mayor a 0.")
+                    continue
+                if not sel_sala_texto.isdigit():
+                    print("ID de sala invalido: no se aceptan letras en el ID.")
+                    continue
+                    
+                sala_id = int(sel_sala_texto)
+
+                try:
+                    with sqlite3.connect(DB_FILE) as conexion:
+                        cursor = conexion.cursor()
+                        cursor.execute("SELECT sala_id, nombre FROM salas WHERE sala_id=?", (sala_id,))
+                        resultado = cursor.fetchone()
+                        cursor.close()
                         
-                    if not ocupado_bd:
-                        disponibles.append((sala_id_tmp, sala_nombre_tmp, sala_cupo_tmp, turno_desc_tmp))
+                    if not resultado:
+                        print(f"ID {sala_id} no encontrado en la base de datos. Ingrese un ID valido.")
+                        continue
+                    else:
+                        sala_nombre = resultado[1]
                         
-        except Exception as err:
-            print(f"Error al leer salas desde BD: {err}")
-            disponibles = []
+                except Exception as error:
+                    print(f"Error verificando sala: {error}")
+                    continue
 
-        if not disponibles:
-            print("\n" + "-" * 60)
-            print("NO HAY SALAS DISPONIBLES")
-            print("-" * 60)
-            print(f"Para la fecha: {fecha.strftime(FORMATO_FECHA_INPUT)}")
-            print("No existen salas con turnos libres.")
-            print("\nSugerencias:")
-            print("Seleccione otra fecha")
-            print("Registre mas salas (Opcion 6)")
-            print("-" * 60)
-            continue
+                existe_en_lista = any(registro_disponible[0] == sala_id for registro_disponible in disponibles)
+                if not existe_en_lista:
+                    print(f"La sala {sala_id} no tiene turnos disponibles para esta fecha.")
+                    print("Seleccione otra sala de la lista.")
+                    continue
+                    
+                break
 
-        # Mostrar salas disponibles
-        print("\n" + "-" * 50)
-        print(f"SALAS DISPONIBLES PARA {fecha.strftime(FORMATO_FECHA_INPUT)}")
-        print("-" * 50)
-        salas_mostradas = set()
-        for registro_disponible in disponibles:
-            id_sala_disp = registro_disponible[0]
-            nombre_sala_disp = registro_disponible[1]
-            cupo_sala_disp = registro_disponible[2]
+            if cancelar:
+                break
+
+            lista_turnos_disponibles = []
+            for registro_disponible in disponibles:
+                if registro_disponible[0] == sala_id:
+                    lista_turnos_disponibles.append(registro_disponible[3])
+
+            print("\nSELECCIONE EL TURNO")
+            for indice, descripcion_turno in enumerate(("Matutino", "Vespertino", "Nocturno"), start=1):
+                disponible_texto = "DISPONIBLE" if descripcion_turno in lista_turnos_disponibles else "OCUPADO"
+                print(f"{indice}. {descripcion_turno} - {disponible_texto}")
+            print("X. Cancelar operacion")
             
-            if id_sala_disp not in salas_mostradas:
-                print(f"\nSALA {id_sala_disp}: {nombre_sala_disp} (Cupo: {cupo_sala_disp} personas)")
-                salas_mostradas.add(id_sala_disp)
-            
-            turno_disp = registro_disponible[3]
-            print(f"   {turno_disp}")
-
-        # Selección de sala
-        sala_nombre = ""
-        while True:
-            try:
-                sel_sala_texto = input("\nIngrese ID de sala o 'X' para cancelar: ").strip()
-            except (EOFError, KeyboardInterrupt):
-                print("\nOperacion cancelada por el usuario.")
-                cancelar = True
+            while True:
+                try:
+                    sel_turno_texto = input("\nElija el numero de turno (1-3) o 'X': ").strip().upper()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nOperacion cancelada por el usuario.")
+                    cancelar = True
+                    break
+                    
+                if sel_turno_texto == "X":
+                    print("Operacion cancelada por el usuario.")
+                    cancelar = True
+                    break
+                    
+                if sel_turno_texto == "":
+                    print("Seleccion invalida: campo vacio.")
+                    continue
+                if not sel_turno_texto.isdigit():
+                    print("Seleccion invalida: no se aceptan letras para seleccionar turno.")
+                    continue
+                    
+                num_turno = int(sel_turno_texto)
+                if num_turno not in (1, 2, 3):
+                    print("Seleccion fuera de rango: elija 1, 2 o 3.")
+                    continue
+                    
+                turno_seleccionado = {1: "Matutino", 2: "Vespertino", 3: "Nocturno"}[num_turno]
+                if turno_seleccionado not in lista_turnos_disponibles:
+                    print(f"Turno {turno_seleccionado} no disponible para la sala seleccionada.")
+                    print("Elija otro turno disponible.")
+                    continue
+                    
                 break
                 
-            if sel_sala_texto.upper() == "X":
-                print("Operacion cancelada por el usuario.")
-                cancelar = True
+            if cancelar:
+                break
+
+            while True:
+                try:
+                    nombre_evento_texto = input("\nNombre del evento o 'X' para cancelar: ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nOperacion cancelada por el usuario.")
+                    cancelar = True
+                    break
+                    
+                if nombre_evento_texto.upper() == "X":
+                    print("Operacion cancelada por el usuario.")
+                    cancelar = True
+                    break
+                    
+                texto_limpio = nombre_evento_texto.strip()
+                if not texto_limpio:
+                    print("El nombre del evento no puede estar vacio")
+                    continue
+                if len(texto_limpio) < 3:
+                    print("El nombre del evento debe tener al menos 3 caracteres")
+                    continue
+                if all(caracter in ' \t\n' for caracter in texto_limpio):
+                    print("El nombre del evento no puede contener solo espacios")
+                    continue
+                    
                 break
                 
-            if sel_sala_texto == "":
-                print("ID de sala invalido: campo vacio.")
-                continue
-            if sel_sala_texto == "0":
-                print("ID invalido: el numero debe ser mayor a 0.")
-                continue
-            if not sel_sala_texto.isdigit():
-                print("ID de sala invalido: no se aceptan letras en el ID.")
-                continue
-                
-            sala_id = int(sel_sala_texto)
+            if cancelar:
+                break
 
+            fecha_norm_texto = fecha.strftime(FORMATO_FECHA_ISO)
+            
             try:
                 with sqlite3.connect(DB_FILE) as conexion:
                     cursor = conexion.cursor()
-                    cursor.execute("SELECT sala_id, nombre FROM salas WHERE sala_id=?", (sala_id,))
+                    cursor.execute("SELECT turno_id FROM turnos WHERE descripcion = ?", (turno_seleccionado,))
                     resultado = cursor.fetchone()
                     cursor.close()
-                    
-                if not resultado:
-                    print(f"ID {sala_id} no encontrado en la base de datos. Ingrese un ID valido.")
-                    continue
-                else:
-                    sala_nombre = resultado[1]
-                    
-            except Exception as err:
-                print(f"Error verificando sala: {err}")
+                    turno_id = resultado[0] if resultado else None
+            except Exception as error:
+                print(f"Error al obtener ID del turno: {error}")
+                turno_id = None
+
+            if not turno_id:
+                print(f"Error: Turno '{turno_seleccionado}' no encontrado")
                 continue
 
-            existe_en_lista = any(registro_disponible[0] == sala_id for registro_disponible in disponibles)
-            if not existe_en_lista:
-                print(f"La sala {sala_id} no tiene turnos disponibles para esta fecha.")
-                print("Seleccione otra sala de la lista.")
-                continue
-                
-            break
-
-        if cancelar:
-            continue
-
-        # Selección de turno
-        lista_turnos_disponibles = []
-        for registro_disponible in disponibles:
-            if registro_disponible[0] == sala_id:
-                lista_turnos_disponibles.append(registro_disponible[3])
-
-        print("\nSELECCIONE EL TURNO")
-        for indice, descripcion_turno in enumerate(("Matutino", "Vespertino", "Nocturno"), start=1):
-            disponible_texto = "DISPONIBLE" if descripcion_turno in lista_turnos_disponibles else "OCUPADO"
-            print(f"{indice}. {descripcion_turno} - {disponible_texto}")
-        print("X. Cancelar operacion")
-        
-        while True:
             try:
-                sel_turno_texto = input("\nElija el numero de turno (1-3) o 'X': ").strip().upper()
-            except (EOFError, KeyboardInterrupt):
-                print("\nOperacion cancelada por el usuario.")
-                cancelar = True
-                break
+                with sqlite3.connect(DB_FILE) as conexion:
+                    conexion.row_factory = sqlite3.Row
+                    cursor = conexion.cursor()
+
+                    cursor.execute("SELECT 1 FROM reservas WHERE sala_id=? AND fecha_normalizada=? AND turno_id=? AND activo=1", 
+                                  (sala_id, fecha_norm_texto, turno_id))
+                    if cursor.fetchone():
+                        print("Error: Ya existe una reserva activa para esa sala, fecha y turno")
+                        continue
+
+                    cursor.execute("INSERT INTO reservas (cliente_id, sala_id, fecha_normalizada, turno_id, evento) VALUES (?,?,?,?,?)",
+                                  (cliente_id, sala_id, fecha_norm_texto, turno_id, nombre_evento_texto))
+                    conexion.commit()
+                    folio_generado = cursor.lastrowid
+                    cursor.close()
+                    
+                cargar_estado_desde_bd()
+                print("\n" + "=" * 60)
+                print("RESERVACION REGISTRADA EXITOSAMENTE")
+                print("=" * 60)
+                print(f"Folio: {folio_generado}")
+                print(f"Cliente: {cliente_nombre_completo}")
+                print(f"Sala: {sala_nombre}")
+                print(f"Fecha: {fecha.strftime(FORMATO_FECHA_INPUT)}")
+                print(f"Turno: {turno_seleccionado}")
+                print(f"Evento: {nombre_evento_texto}")
+                print("=" * 60)
                 
-            if sel_turno_texto == "X":
-                print("Operacion cancelada por el usuario.")
-                cancelar = True
-                break
-                
-            if sel_turno_texto == "":
-                print("Seleccion invalida: campo vacio.")
-                continue
-            if not sel_turno_texto.isdigit():
-                print("Seleccion invalida: no se aceptan letras para seleccionar turno.")
-                continue
-                
-            num_turno = int(sel_turno_texto)
-            if num_turno not in (1, 2, 3):
-                print("Seleccion fuera de rango: elija 1, 2 o 3.")
-                continue
-                
-            turno_seleccionado = {1: "Matutino", 2: "Vespertino", 3: "Nocturno"}[num_turno]
-            if turno_seleccionado not in lista_turnos_disponibles:
-                print(f"Turno {turno_seleccionado} no disponible para la sala seleccionada.")
-                print("Elija otro turno disponible.")
-                continue
-                
+            except sqlite3.IntegrityError as error:
+                print(f"Reserva no insertada en BD (error de integridad): {error}")
+            except Exception as error:
+                print(f"Error al insertar reserva en BD: {error}")
+            
             break
-            
-        if cancelar:
-            continue
-
-        # Ingreso del nombre del evento
-        while True:
-            try:
-                nombre_evento_texto = input("\nNombre del evento o 'X' para cancelar: ").strip()
-            except (EOFError, KeyboardInterrupt):
-                print("\nOperacion cancelada por el usuario.")
-                cancelar = True
-                break
-                
-            if nombre_evento_texto.upper() == "X":
-                print("Operacion cancelada por el usuario.")
-                cancelar = True
-                break
-                
-            # Validación de nombre de evento
-            texto_limpio = nombre_evento_texto.strip()
-            if not texto_limpio:
-                print("El nombre del evento no puede estar vacio")
-                print("Ejemplo valido: 'Reunion de equipo', 'Conferencia anual', 'Waifu Fest 2'")
-                continue
-            if len(texto_limpio) < 3:
-                print("El nombre del evento debe tener al menos 3 caracteres")
-                print("Ejemplo valido: 'Reunion de equipo', 'Conferencia anual', 'Waifu Fest 2'")
-                continue
-            if all(c in ' \t\n' for c in texto_limpio):
-                print("El nombre del evento no puede contener solo espacios")
-                print("Ejemplo valido: 'Reunion de equipo', 'Conferencia anual', 'Waifu Fest 2'")
-                continue
-                
-            break
-            
-        if cancelar:
-            continue
-
-        # Insertar reserva
-        fecha_norm_texto = fecha.strftime(FORMATO_FECHA_ISO)
-        
-        # Obtener turno_id
-        try:
-            with sqlite3.connect(DB_FILE) as conexion:
-                cursor = conexion.cursor()
-                cursor.execute("SELECT turno_id FROM turnos WHERE descripcion = ?", (turno_seleccionado,))
-                resultado = cursor.fetchone()
-                cursor.close()
-                turno_id = resultado[0] if resultado else None
-        except Exception as err:
-            print(f"Error al obtener ID del turno: {err}")
-            turno_id = None
-
-        if not turno_id:
-            print(f"Error: Turno '{turno_seleccionado}' no encontrado")
-            continue
-
-        # Verificar conflicto e insertar
-        try:
-            with sqlite3.connect(DB_FILE) as conexion:
-                conexion.row_factory = sqlite3.Row
-                cursor = conexion.cursor()
-
-                cursor.execute("SELECT 1 FROM reservas WHERE sala_id=? AND fecha_normalizada=? AND turno_id=? AND activo=1", 
-                              (sala_id, fecha_norm_texto, turno_id))
-                if cursor.fetchone():
-                    print("Error: Ya existe una reserva activa para esa sala, fecha y turno")
-                    continue
-
-                cursor.execute("INSERT INTO reservas (cliente_id, sala_id, fecha_normalizada, turno_id, evento) VALUES (?,?,?,?,?)",
-                              (cliente_id, sala_id, fecha_norm_texto, turno_id, nombre_evento_texto))
-                conexion.commit()
-                folio_generado = cursor.lastrowid
-                cursor.close()
-                
-            cargar_estado_desde_bd()
-            print("\n" + "=" * 60)
-            print("RESERVACION REGISTRADA EXITOSAMENTE")
-            print("=" * 60)
-            print(f"Folio: {folio_generado}")
-            print(f"Cliente: {cliente_nombre_completo}")
-            print(f"Sala: {sala_nombre}")
-            print(f"Fecha: {fecha.strftime(FORMATO_FECHA_INPUT)}")
-            print(f"Turno: {turno_seleccionado}")
-            print(f"Evento: {nombre_evento_texto}")
-            print("=" * 60)
-            
-        except sqlite3.IntegrityError as err:
-            print(f"Reserva no insertada en BD (error de integridad): {err}")
-            print("Nota: Esto puede ocurrir si hay un conflicto de unicidad. Verifique que no exista una reserva activa para la misma sala, fecha y turno.")
-        except Exception as err:
-            print(f"Error al insertar reserva en BD: {err}")
 
     elif opcion == 2:
         print("\n" + "=" * 60)
@@ -871,7 +875,6 @@ while True:
         print("=" * 60)
         cancelar_operacion = False
 
-        # Solicitar rango de fechas
         while True:
             try:
                 texto_fecha_ini = input("\nFecha inicial (MM-DD-YYYY) o 'X' para cancelar: ").strip()
@@ -889,11 +892,10 @@ while True:
                 print("Fecha inicial invalida: campo vacio.")
                 continue
                 
-            # Validación de fecha
-            if any(c.isalpha() for c in texto_fecha_ini):
+            if any(caracter.isalpha() for caracter in texto_fecha_ini):
                 print("Fecha inicial invalida. Use formato MM-DD-YYYY.")
                 continue
-            if any(c in ",./\\" for c in texto_fecha_ini) and "-" not in texto_fecha_ini:
+            if any(caracter in ",./\\" for caracter in texto_fecha_ini) and "-" not in texto_fecha_ini:
                 print("Fecha inicial invalida. Use formato MM-DD-YYYY.")
                 continue
             try:
@@ -924,11 +926,10 @@ while True:
                 print("Fecha final invalida: campo vacio.")
                 continue
                 
-            # Validación de fecha
-            if any(c.isalpha() for c in texto_fecha_fin):
+            if any(caracter.isalpha() for caracter in texto_fecha_fin):
                 print("Fecha final invalida. Use formato MM-DD-YYYY.")
                 continue
-            if any(c in ",./\\" for c in texto_fecha_fin) and "-" not in texto_fecha_fin:
+            if any(caracter in ",./\\" for caracter in texto_fecha_fin) and "-" not in texto_fecha_fin:
                 print("Fecha final invalida. Use formato MM-DD-YYYY.")
                 continue
             try:
@@ -946,21 +947,18 @@ while True:
             print("Rango invalido: la fecha final es anterior a la inicial.")
             continue
 
-        # Obtener reservas en el rango usando la función
         reservas_rango = generar_reporte_por_rango_fecha(fecha_inicio, fecha_fin)
         
         if not reservas_rango:
             print(f"\nNo hay reservaciones activas entre {fecha_inicio.strftime(FORMATO_FECHA_INPUT)} y {fecha_fin.strftime(FORMATO_FECHA_INPUT)}")
             continue
 
-        # Mostrar reservas
         print("\n" + "-" * 50)
         print(f"RESERVACIONES DEL {fecha_inicio.strftime(FORMATO_FECHA_INPUT)} AL {fecha_fin.strftime(FORMATO_FECHA_INPUT)}")
         print("-" * 50)
-        tabla_reservas = [[r["folio"], r["fecha"], r["cliente"], r["sala"], r["turno"], r["evento"]] for r in reservas_rango]
+        tabla_reservas = [[reserva["folio"], reserva["fecha"], reserva["cliente"], reserva["sala"], reserva["turno"], reserva["evento"]] for reserva in reservas_rango]
         print(tabulate(tabla_reservas, headers=["FOLIO", "FECHA", "CLIENTE", "SALA", "TURNO", "EVENTO"], tablefmt="grid"))
 
-        # Seleccionar folio a cancelar
         while True:
             try:
                 folio_cancelar_texto = input("\nIngrese el folio a cancelar o 'X' para cancelar: ").strip()
@@ -983,13 +981,11 @@ while True:
                 
             folio_cancelar = int(folio_cancelar_texto)
             
-            # Verificar que el folio existe en el rango
-            reserva_encontrada = next((r for r in reservas_rango if r["folio"] == folio_cancelar), None)
+            reserva_encontrada = next((reserva for reserva in reservas_rango if reserva["folio"] == folio_cancelar), None)
             if not reserva_encontrada:
                 print(f"Folio {folio_cancelar} no encontrado en el rango especificado.")
                 continue
                 
-            # Verificar anticipación (mínimo 2 días)
             fecha_reserva = datetime.datetime.strptime(reserva_encontrada["fecha"], FORMATO_FECHA_INPUT).date()
             dias_restantes = (fecha_reserva - datetime.date.today()).days
             
@@ -998,19 +994,29 @@ while True:
                 print("Se requiere al menos 2 dias de anticipacion para cancelar.")
                 break
                 
-            # Confirmar cancelación
-            try:
-                confirmacion = input(f"Esta seguro de cancelar la reservacion folio {folio_cancelar}? (S/N): ").strip().upper()
-            except (EOFError, KeyboardInterrupt):
-                print("\nOperacion cancelada por el usuario.")
-                cancelar_operacion = True
+            while True:
+                try:
+                    confirmacion = input(f"Esta seguro de cancelar la reservacion folio {folio_cancelar}? (S/N): ").strip().upper()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nOperacion cancelada por el usuario.")
+                    cancelar_operacion = True
+                    break
+                    
+                if confirmacion == "":
+                    print("Confirmacion vacia: escriba 'S' para si o 'N' para no.")
+                    continue
+                if confirmacion not in ("S", "N"):
+                    print("Confirmacion invalida: escriba 'S' para si o 'N' para no.")
+                    continue
                 break
                 
+            if cancelar_operacion:
+                break
+
             if confirmacion != "S":
                 print("Cancelacion abortada por el usuario.")
                 break
                 
-            # Ejecutar cancelación (actualizar activo = 0)
             try:
                 with sqlite3.connect(DB_FILE) as conexion:
                     cursor = conexion.cursor()
@@ -1020,8 +1026,8 @@ while True:
                 cargar_estado_desde_bd()
                 print(f"Reservacion folio {folio_cancelar} cancelada exitosamente.")
                 print("La reserva ya no aparecera en los reportes del sistema.")
-            except Exception as err:
-                print(f"Error al cancelar la reservacion folio {folio_cancelar}: {err}")
+            except Exception as error:
+                print(f"Error al cancelar la reservacion folio {folio_cancelar}: {error}")
                 
             break
             
@@ -1034,7 +1040,6 @@ while True:
         print("=" * 60)
         cancelar_operacion = False
 
-        # Solicitar rango de fechas
         while True:
             try:
                 texto_fecha_ini = input("\nFecha inicial (MM-DD-YYYY) o 'X' para cancelar: ").strip()
@@ -1052,11 +1057,10 @@ while True:
                 print("Fecha inicial invalida: campo vacio.")
                 continue
                 
-            # Validación de fecha
-            if any(c.isalpha() for c in texto_fecha_ini):
+            if any(caracter.isalpha() for caracter in texto_fecha_ini):
                 print("Fecha inicial invalida. Use formato MM-DD-YYYY.")
                 continue
-            if any(c in ",./\\" for c in texto_fecha_ini) and "-" not in texto_fecha_ini:
+            if any(caracter in ",./\\" for caracter in texto_fecha_ini) and "-" not in texto_fecha_ini:
                 print("Fecha inicial invalida. Use formato MM-DD-YYYY.")
                 continue
             try:
@@ -1087,11 +1091,10 @@ while True:
                 print("Fecha final invalida: campo vacio.")
                 continue
                 
-            # Validación de fecha
-            if any(c.isalpha() for c in texto_fecha_fin):
+            if any(caracter.isalpha() for caracter in texto_fecha_fin):
                 print("Fecha final invalida. Use formato MM-DD-YYYY.")
                 continue
-            if any(c in ",./\\" for c in texto_fecha_fin) and "-" not in texto_fecha_fin:
+            if any(caracter in ",./\\" for caracter in texto_fecha_fin) and "-" not in texto_fecha_fin:
                 print("Fecha final invalida. Use formato MM-DD-YYYY.")
                 continue
             try:
@@ -1109,21 +1112,18 @@ while True:
             print("Rango invalido: la fecha final es anterior a la inicial.")
             continue
 
-        # Obtener reservas en el rango usando la función
         reservas_rango = generar_reporte_por_rango_fecha(fecha_inicio, fecha_fin)
         
         if not reservas_rango:
             print(f"\nNo hay reservaciones activas entre {fecha_inicio.strftime(FORMATO_FECHA_INPUT)} y {fecha_fin.strftime(FORMATO_FECHA_INPUT)}")
             continue
 
-        # Mostrar reservas
         print("\n" + "-" * 50)
         print(f"RESERVACIONES DEL {fecha_inicio.strftime(FORMATO_FECHA_INPUT)} AL {fecha_fin.strftime(FORMATO_FECHA_INPUT)}")
         print("-" * 50)
-        tabla_reservas = [[r["folio"], r["fecha"], r["cliente"], r["sala"], r["turno"], r["evento"]] for r in reservas_rango]
+        tabla_reservas = [[reserva["folio"], reserva["fecha"], reserva["cliente"], reserva["sala"], reserva["turno"], reserva["evento"]] for reserva in reservas_rango]
         print(tabulate(tabla_reservas, headers=["FOLIO", "FECHA", "CLIENTE", "SALA", "TURNO", "EVENTO"], tablefmt="grid"))
 
-        # Seleccionar folio a editar
         while True:
             try:
                 folio_editar_texto = input("\nIngrese el folio a editar o 'X' para cancelar: ").strip()
@@ -1146,8 +1146,7 @@ while True:
                 
             folio_editar = int(folio_editar_texto)
             
-            # Verificar que el folio existe en el rango
-            reserva_encontrada = next((r for r in reservas_rango if r["folio"] == folio_editar), None)
+            reserva_encontrada = next((reserva for reserva in reservas_rango if reserva["folio"] == folio_editar), None)
             if not reserva_encontrada:
                 print(f"Folio {folio_editar} no encontrado en el rango especificado.")
                 continue
@@ -1157,7 +1156,6 @@ while True:
         if cancelar_operacion:
             continue
 
-        # Solicitar nuevo nombre del evento
         while True:
             try:
                 nuevo_nombre = input("\nNuevo nombre del evento o 'X' para cancelar: ").strip()
@@ -1171,19 +1169,15 @@ while True:
                 cancelar_operacion = True
                 break
                 
-            # Validación de nombre de evento
             texto_limpio = nuevo_nombre.strip()
             if not texto_limpio:
                 print("El nombre del evento no puede estar vacio")
-                print("Ejemplo valido: 'Reunion de equipo', 'Conferencia anual', 'Waifu Fest 2'")
                 continue
             if len(texto_limpio) < 3:
                 print("El nombre del evento debe tener al menos 3 caracteres")
-                print("Ejemplo valido: 'Reunion de equipo', 'Conferencia anual', 'Waifu Fest 2'")
                 continue
-            if all(c in ' \t\n' for c in texto_limpio):
+            if all(caracter in ' \t\n' for caracter in texto_limpio):
                 print("El nombre del evento no puede contener solo espacios")
-                print("Ejemplo valido: 'Reunion de equipo', 'Conferencia anual', 'Waifu Fest 2'")
                 continue
                 
             break
@@ -1191,18 +1185,29 @@ while True:
         if cancelar_operacion:
             continue
 
-        # Confirmar edición
-        try:
-            confirmacion = input(f"Esta seguro de cambiar el nombre del evento folio {folio_editar}? (S/N): ").strip().upper()
-        except (EOFError, KeyboardInterrupt):
-            print("\nOperacion cancelada por el usuario.")
-            continue
+        while True:
+            try:
+                confirmacion = input(f"Esta seguro de cambiar el nombre del evento folio {folio_editar}? (S/N): ").strip().upper()
+            except (EOFError, KeyboardInterrupt):
+                print("\nOperacion cancelada por el usuario.")
+                cancelar_operacion = True
+                break
+                
+            if confirmacion == "":
+                print("Confirmacion vacia: escriba 'S' para si o 'N' para no.")
+                continue
+            if confirmacion not in ("S", "N"):
+                print("Confirmacion invalida: escriba 'S' para si o 'N' para no.")
+                continue
+            break
             
+        if cancelar_operacion:
+            continue
+
         if confirmacion != "S":
             print("Edicion abortada por el usuario.")
             continue
 
-        # Ejecutar actualización
         try:
             with sqlite3.connect(DB_FILE) as conexion:
                 cursor = conexion.cursor()
@@ -1212,8 +1217,8 @@ while True:
             cargar_estado_desde_bd()
             print(f"Evento folio {folio_editar} actualizado exitosamente.")
             print(f"Nuevo nombre: {nuevo_nombre}")
-        except Exception as err:
-            print(f"Error al actualizar el evento folio {folio_editar}: {err}")
+        except Exception as error:
+            print(f"Error al actualizar el evento folio {folio_editar}: {error}")
 
     elif opcion == 4:
         print("\n" + "=" * 60)
@@ -1231,11 +1236,10 @@ while True:
                 fecha_consulta = datetime.date.today()
                 print(f"\nFecha consultada: {fecha_consulta.strftime(FORMATO_FECHA_INPUT)} (hoy)")
             else:
-                # Validación de fecha
-                if any(c.isalpha() for c in texto_fecha_consulta):
+                if any(caracter.isalpha() for caracter in texto_fecha_consulta):
                     print("Fecha invalida: hay letras en la fecha. Use solo digitos y guiones.")
                     continue
-                if any(c in ",./\\" for c in texto_fecha_consulta) and "-" not in texto_fecha_consulta:
+                if any(caracter in ",./\\" for caracter in texto_fecha_consulta) and "-" not in texto_fecha_consulta:
                     print("Fecha invalida: separadores incorrectos. Use '-' entre mes, dia y año.")
                     continue
                 try:
@@ -1272,7 +1276,6 @@ while True:
                 else:
                     continue
 
-            # Opciones de exportación
             print("\n" + "-" * 50)
             print("OPCIONES DE EXPORTACION")
             print("-" * 50)
@@ -1332,11 +1335,11 @@ while True:
             if texto_nombre == "":
                 print("Nombre invalido: el campo 'Nombre' esta vacio.")
                 continue
-            if any(char.isdigit() for char in texto_nombre):
+            if any(caracter.isdigit() for caracter in texto_nombre):
                 print("Nombre invalido: no se aceptan digitos en el nombre.")
                 continue
             if not texto_nombre.replace(" ", "").isalpha():
-                print("Nombre invalido: solo letras y espacios son permitidos. Ejemplo: Maria")
+                print("Nombre invalido: solo letras y espacios son permitidos.")
                 continue
             break
             
@@ -1359,18 +1362,17 @@ while True:
             if texto_apellidos == "":
                 print("Apellidos invalidos: el campo 'Apellidos' esta vacio.")
                 continue
-            if any(char.isdigit() for char in texto_apellidos):
+            if any(caracter.isdigit() for caracter in texto_apellidos):
                 print("Apellidos invalidos: no se aceptan digitos en los apellidos.")
                 continue
             if not texto_apellidos.replace(" ", "").isalpha():
-                print("Apellidos invalidos: solo letras y espacios son permitidos. Ejemplo: Garcia Lopez")
+                print("Apellidos invalidos: solo letras y espacios son permitidos.")
                 continue
             break
             
         if cancelar_cliente:
             continue
 
-        # Insertar cliente en BD
         try:
             asegurar_tablas()
             with sqlite3.connect(DB_FILE) as conexion:
@@ -1384,10 +1386,10 @@ while True:
             print(f"\nCliente registrado exitosamente con ID: {cliente_id_bd}")
             print(f"Nombre: {texto_nombre} {texto_apellidos}")
             
-        except sqlite3.IntegrityError as err:
-            print(f"Cliente no insertado en BD (error de integridad): {err}")
-        except Exception as err:
-            print(f"Error al insertar cliente en BD: {err}")
+        except sqlite3.IntegrityError as error:
+            print(f"Cliente no insertado en BD (error de integridad): {error}")
+        except Exception as error:
+            print(f"Error al insertar cliente en BD: {error}")
 
     elif opcion == 6:
         print("\n" + "=" * 60)
@@ -1411,11 +1413,11 @@ while True:
             if texto_nombre_sala == "":
                 print("Nombre de sala invalido: campo vacio.")
                 continue
-            if any(char.isdigit() for char in texto_nombre_sala):
+            if any(caracter.isdigit() for caracter in texto_nombre_sala):
                 print("Nombre de sala invalido: no se aceptan digitos en el nombre de sala.")
                 continue
-            if not all(car.isalpha() or car.isspace() for car in texto_nombre_sala):
-                print("Nombre de sala invalido: solo letras y espacios permitidos. Ejemplo: Sala Ejecutiva")
+            if not all(caracter.isalpha() or caracter.isspace() for caracter in texto_nombre_sala):
+                print("Nombre de sala invalido: solo letras y espacios permitidos.")
                 continue
             break
             
@@ -1438,11 +1440,11 @@ while True:
             if texto_cupo == "":
                 print("Cupo invalido: campo vacio.")
                 continue
-            if any(c.isalpha() for c in texto_cupo):
+            if any(caracter.isalpha() for caracter in texto_cupo):
                 print("Cupo invalido: no se aceptan letras en el cupo.")
                 continue
             if not texto_cupo.isdigit():
-                print("Cupo invalido: formato no numerico. Ejemplo valido: 12")
+                print("Cupo invalido: formato no numerico.")
                 continue
                 
             try:
@@ -1462,7 +1464,6 @@ while True:
         if cancelar_sala:
             continue
 
-        # Insertar sala en BD
         try:
             asegurar_tablas()
             with sqlite3.connect(DB_FILE) as conexion:
@@ -1477,10 +1478,10 @@ while True:
             print(f"Nombre: {texto_nombre_sala}")
             print(f"Cupo: {cupo_int} personas")
             
-        except sqlite3.IntegrityError as err:
-            print(f"Sala no insertada en BD (error de integridad): {err}")
-        except Exception as err:
-            print(f"Error al insertar sala en BD: {err}")
+        except sqlite3.IntegrityError as error:
+            print(f"Sala no insertada en BD (error de integridad): {error}")
+        except Exception as error:
+            print(f"Error al insertar sala en BD: {error}")
 
     elif opcion == 7:
         while True:
